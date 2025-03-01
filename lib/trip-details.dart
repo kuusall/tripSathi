@@ -1,0 +1,452 @@
+import 'package:minor/Database/insert-expense.dart';
+import 'package:minor/expense-summery.dart';
+import 'package:minor/global.dart';
+import 'package:minor/insert-trip.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import 'Database/database.dart';
+import 'Database/insert-person.dart';
+import 'Database/insert-trip.dart';
+import 'add-expense.dart';
+import 'res.dart';
+
+class TripDetailsScreen extends StatefulWidget {
+  final int tripId;
+
+  const TripDetailsScreen({super.key, required this.tripId});
+
+  @override
+  _TripDetailsScreenState createState() => _TripDetailsScreenState();
+}
+
+class _TripDetailsScreenState extends State<TripDetailsScreen> {
+  Trip? tripDetails;
+  List<Person?>? personsDetails;
+  List<Expense?>? totalExpenses;
+  int? totalExpense;
+
+  bool isLoading = true;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        iconTheme: IconThemeData(color: Colors.white),
+        elevation: 0.0,
+        actions: [
+          GestureDetector(
+            onTap: () async {
+              await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => InsertTripScreen(
+                      isFromEdit: true,
+                    ),
+                  ));
+              getData();
+            },
+            child: Container(
+              child: Icon(Icons.edit),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: GestureDetector(
+              onTap: () async {
+                await deleteTrip();
+                Navigator.pop(context);
+              },
+              child: Container(
+                child: Icon(Icons.delete),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: isLoading == true
+          ? Container(
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          : Container(
+              child: Column(
+                children: [
+                  Container(
+                    child: Stack(
+                      children: [
+                        tripDetails!.tripImage == null
+                            ? Container(
+                                width: MediaQuery.of(context).size.width,
+                                clipBehavior: Clip.hardEdge,
+                                height: 250,
+                                decoration: BoxDecoration(
+                                  color: Color(0xFF1BC0C5),
+                                ),
+                                child: Image.asset(
+                                  Res.ic_trip_default3,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Container(
+                                width: MediaQuery.of(context).size.width,
+                                clipBehavior: Clip.hardEdge,
+                                height: 250,
+                                decoration: BoxDecoration(
+                                  color: Color(0xFF1BC0C5),
+                                ),
+                                child: Image.memory(
+                                  tripDetails!.tripImage!,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                        Container(
+                          height: 250,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                          ),
+                          alignment: Alignment.center,
+                        ),
+                        Container(
+                          alignment: Alignment.center,
+                          height: 250,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                child: Text(
+                                  tripDetails!.tripTitle.toString(),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                child: Text(
+                                  tripDetails!.tripDescription.toString(),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                child: Text(
+                                  DateFormat('yyyy-MM-dd')
+                                      .format(
+                                        DateTime.fromMicrosecondsSinceEpoch(
+                                          int.parse(tripDetails!.tripStartDate),
+                                        ),
+                                      )
+                                      .toString(),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 20.0),
+                    alignment: Alignment.centerLeft,
+                    margin: EdgeInsets.symmetric(
+                      horizontal: 10.0,
+                      vertical: 10.0,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(7.0),
+                      ),
+                      color: Colors.white,
+                    ),
+                    width: MediaQuery.of(context).size.width,
+                    height: 50.0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Trip Expense: ',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 17.0,
+                              ),
+                            ),
+                            Text(
+                              '\$${totalExpense.toString()}',
+                              style: TextStyle(
+                                color: Color(0xFF1BC0C5),
+                                fontSize: 17.0,
+                              ),
+                            ),
+                          ],
+                        ),
+                        totalExpense == 0
+                            ? Text(
+                                'Per Head: 0.00',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                ),
+                              )
+                            : Text(
+                                'Per Head: ${(totalExpense! / personsDetails!.length).toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.symmetric(
+                      horizontal: 10.0,
+                    ),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      primary: false,
+                      itemCount: personsDetails!.length,
+                      itemBuilder: (context, index) {
+                        return GestureDetector(
+                          onTap: () async {
+                            personId = personsDetails![index]!.personId;
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ExpenseSummery(
+                                  isFromPersonDetails: true,
+                                ),
+                              ),
+                            );
+                            getData();
+                          },
+                          child: Container(
+                            margin: EdgeInsets.symmetric(vertical: 7.0),
+                            padding: EdgeInsets.symmetric(horizontal: 20.0),
+                            height: 60.0,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(7.0),
+                              ),
+                              color: Colors.white,
+                            ),
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: Icon(Icons.ac_unit_sharp),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(personsDetails![index]!.personName),
+                                    FutureBuilder<List<Expense?>>(
+                                      builder: (context,
+                                          AsyncSnapshot<List<Expense?>>
+                                              snapshot) {
+                                        if (snapshot.hasData) {
+                                          int amount = 0;
+                                          for (var element in snapshot.data!) {
+                                            amount = amount + element!.amount;
+                                          }
+                                          return Row(
+                                            children: [
+                                              Text(
+                                                'Paid: $amount',
+                                              ),
+                                              Text(
+                                                !(amount.toDouble() -
+                                                            (totalExpense! /
+                                                                personsDetails!
+                                                                    .length))
+                                                        .isNegative
+                                                    ? ' (+${(amount.toDouble() - (totalExpense! / personsDetails!.length)).toStringAsFixed(2)})'
+                                                    : ' (${(amount.toDouble() - (totalExpense! / personsDetails!.length)).toStringAsFixed(2)})',
+                                                style: TextStyle(
+                                                    color: (amount.toDouble() -
+                                                                (totalExpense! /
+                                                                    personsDetails!
+                                                                        .length))
+                                                            .isNegative
+                                                        ? Colors.red
+                                                        : Colors.green),
+                                              ),
+                                            ],
+                                          );
+                                        } else {
+                                          return Container();
+                                        }
+                                      },
+                                      future: viewPersonExpenseData(
+                                          personsDetails![index]!.personId),
+                                    ),
+                                  ],
+                                ),
+                                Expanded(
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    child: GestureDetector(
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                AddExpanseScreen(
+                                              personId: personsDetails![index]!
+                                                  .personId,
+                                              isFromEdit: false,
+                                            ),
+                                          ),
+                                        );
+                                        getData();
+                                      },
+                                      child: Icon(
+                                        Icons.add,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ExpenseSummery(
+                            isFromPersonDetails: false,
+                          ),
+                        ),
+                      );
+                      getData();
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 20.0),
+                      alignment: Alignment.centerLeft,
+                      margin: EdgeInsets.symmetric(
+                        horizontal: 10.0,
+                        vertical: 10.0,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(7.0),
+                        ),
+                        color: Colors.white,
+                      ),
+                      width: MediaQuery.of(context).size.width,
+                      height: 50.0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Expense Summery'),
+                          Icon(Icons.navigate_next)
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  deleteTrip() async {
+    final database =
+        await $FloorAppDatabase.databaseBuilder('trip_database.db').build();
+    final tripDao = database.tripDao;
+
+    final trip = Trip(
+        tripId,
+        '',
+        tripDetails!.tripTitle,
+        tripDetails!.tripDescription,
+        tripDetails!.tripStartDate,
+        tripDetails!.tripEndDate,
+        true,
+        tripDetails!.tripImage);
+    await tripDao.updateTrip(trip);
+  }
+
+  Future<Trip?> viewData() async {
+    final database =
+        await $FloorAppDatabase.databaseBuilder('trip_database.db').build();
+    final tripDao = database.tripDao;
+    return await tripDao.findTripById(widget.tripId);
+  }
+
+  Future<List<Expense?>> viewPersonExpenseData(id) async {
+    final database =
+        await $FloorAppDatabase.databaseBuilder('trip_database.db').build();
+    final tripDao = database.tripDao;
+    return await tripDao.findPersonExpenseById(id);
+  }
+
+  Future<List<Person?>> getPersonData(id) async {
+    final database =
+        await $FloorAppDatabase.databaseBuilder('trip_database.db').build();
+    final tripDao = database.tripDao;
+    return await tripDao.findPersonsById(id, false);
+  }
+
+  Future<List<Expense?>> getTotalExpense(id) async {
+    final database =
+        await $FloorAppDatabase.databaseBuilder('trip_database.db').build();
+    final tripDao = database.tripDao;
+    return await tripDao.findExpenseByTripId(id);
+  }
+
+  getTotalExpenseDetails() async {
+    final database =
+        await $FloorAppDatabase.databaseBuilder('trip_database.db').build();
+    final tripDao = database.tripDao;
+
+    tripDetails = await viewData();
+    personsDetails = await getPersonData(widget.tripId);
+    totalExpenses = await getTotalExpense(widget.tripId);
+    totalExpenses!.map((e) => print(e!.amount));
+    totalExpense = 0;
+
+    if (totalExpenses!.isNotEmpty) {
+      for (int i = 0; i < totalExpenses!.length; i++) {
+        Person? person =
+            await tripDao.findPersonById(totalExpenses![i]!.personId!);
+        if (!person!.isPersonDeleted) {
+          totalExpense = (totalExpense! + totalExpenses![i]!.amount);
+        }
+        if (i == (totalExpenses!.length - 1)) {
+          isLoading = false;
+          setState(() {});
+        }
+      }
+    } else {
+      isLoading = false;
+      setState(() {});
+    }
+  }
+
+  getData() async {
+    tripId = widget.tripId;
+    await getTotalExpenseDetails();
+  }
+
+  @override
+  void initState() {
+    getData();
+    super.initState();
+  }
+}
